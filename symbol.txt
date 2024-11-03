@@ -1,0 +1,17 @@
+1 year ConstInt
+1 day Int
+1 <FuncType> Int
+1 <FuncType> VoidFunc
+1 s ConstCharArray
+1 length Int
+1 <FuncType> Int
+1 s ConstCharArray
+1 <FuncType> Char
+1 s ConstCharArray
+1 index Int
+2 day Int
+3 i Int
+5 i Int
+7 s ConstCharArray
+8 length Int
+9 tmp Char

@@ -1,0 +1,25 @@
+package Tree;
+
+import base.Token;
+
+public class LeafNode extends Node {
+    private Token value;
+
+    public LeafNode(String type, Token value) {
+        super(type);
+        this.value = value;
+    }
+
+    public String getValue() {
+        return value.toString();
+    }
+
+    @Override
+    public void print(int depth) {
+        StringBuilder indent = new StringBuilder();
+        for (int i = 0; i < depth; i++) {
+            indent.append("  ");
+        }
+        System.out.println(indent + getType() + " " + getValue());
+    }
+}

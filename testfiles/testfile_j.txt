@@ -1,0 +1,25 @@
+//j 脚本
+int checkYear({ //1
+
+}
+
+int checkYear(int a{//2
+
+}
+
+int main({ //3
+    if(year == 0{ //4
+    ;
+    }
+    (3+5;//5
+    cccc(;//6
+    ccccc(ins;//7
+    year = getint(;//8
+    for(;;)
+    printf("leap year\n",a,b;//9
+    a = getint(;//10
+    b = getint(;//11
+    1//12
+    return (1;//13
+    (1;//14
+}
