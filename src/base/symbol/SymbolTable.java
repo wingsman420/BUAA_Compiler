@@ -4,6 +4,7 @@ import frontend.FileProcessor;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 public class SymbolTable {
     private int level;
@@ -26,11 +27,11 @@ public class SymbolTable {
 
     public void output(FileProcessor fileProcessor,int id) throws IOException {
         for (Symbol symbol : symbols) {
-            fileProcessor.writeByLine(id + symbol.toString());
+            fileProcessor.writeByLine(id+ " " + symbol.toString());
         };
-        int temp = id;
+        int temp = 0;
         for (SymbolTable child : children) {
-            child.output(fileProcessor, id + temp);
+            child.output(fileProcessor, id + ++temp);
         }
     }
 

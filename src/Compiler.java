@@ -23,7 +23,8 @@ public class Compiler {
 
             GrammaticalAnalyser grammaticalAnalyser = new GrammaticalAnalyser(lexer.getTokens(),lexer.getErrorInOrder());
 
-            SymbolAnalyser symbolAnalyser = new SymbolAnalyser(grammaticalAnalyser.getGrammarTokens());
+
+            SymbolAnalyser symbolAnalyser = new SymbolAnalyser(grammaticalAnalyser.getRoot());
 
             symbolAnalyser.writeTokens(tokenFileProcessor);
 

@@ -5,9 +5,14 @@ import base.Token;
 public class LeafNode extends Node {
     private Token value;
 
-    public LeafNode(String type, Token value) {
-        super(type);
+    public LeafNode(Token value) {
+        super(value.getType());
         this.value = value;
+    }
+
+    public Token getToken()
+    {
+        return value;
     }
 
     public String getValue() {

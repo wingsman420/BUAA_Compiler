@@ -11,6 +11,6 @@ public class CharArraySymbol extends Symbol {
         super.isFunc = false;
         super.isInt = false;
         super.isVoid = false;
-        super.type = SymbolKey.ConstCharArray;
+        super.type = SymbolKey.CharArray;
     }
 }

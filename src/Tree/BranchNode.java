@@ -5,9 +5,15 @@ import java.util.List;
 
 public class BranchNode extends Node {
     private List<Node> children = new ArrayList<>();
+    private BranchNode parent;
 
-    public BranchNode(String type) {
+    public BranchNode(String type,BranchNode parent) {
         super(type);
+        this.parent = parent;
+    }
+
+    public BranchNode getParent() {
+        return parent;
     }
 
     public void addChild(Node child) {
