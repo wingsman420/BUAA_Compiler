@@ -1,5 +1,7 @@
 package base.symbol;
 
+import java.util.ArrayList;
+
 public abstract class Symbol {
     private int id;
     private int lineNumber;
@@ -41,6 +43,17 @@ public abstract class Symbol {
     {
         return isVoid;
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getType()
+    {
+        return type.toString();
+    }
+
+    public abstract ArrayList<Symbol> getArgs();
 
     @Override
     public String toString()

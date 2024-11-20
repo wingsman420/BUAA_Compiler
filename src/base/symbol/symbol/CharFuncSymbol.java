@@ -4,8 +4,11 @@ import base.Token;
 import base.symbol.Symbol;
 import base.symbol.SymbolKey;
 
+import java.util.ArrayList;
+
 public class CharFuncSymbol extends Symbol {
-    public CharFuncSymbol(int id, int lineNumber, String name) {
+    ArrayList<Symbol> args;
+    public CharFuncSymbol(int id, int lineNumber, String name, ArrayList<Symbol> args) {
         super(id, lineNumber, name);
         super.isConst = false;
         super.isArray = false;
@@ -13,5 +16,10 @@ public class CharFuncSymbol extends Symbol {
         super.isInt = false;
         super.isVoid = false;
         super.type = SymbolKey.CharFunc;
+        this.args = args;
+    }
+
+    public ArrayList<Symbol> getArgs() {
+        return args;
     }
 }

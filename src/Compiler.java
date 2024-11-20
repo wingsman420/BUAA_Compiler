@@ -24,9 +24,10 @@ public class Compiler {
             GrammaticalAnalyser grammaticalAnalyser = new GrammaticalAnalyser(lexer.getTokens(),lexer.getErrorInOrder());
 
 
-            SymbolAnalyser symbolAnalyser = new SymbolAnalyser(grammaticalAnalyser.getRoot());
+            SymbolAnalyser symbolAnalyser = new SymbolAnalyser(grammaticalAnalyser.getRoot(),grammaticalAnalyser.getErrors());
 
             symbolAnalyser.writeTokens(tokenFileProcessor);
+            symbolAnalyser.writeErrors(errorFileProcessor);
 
             // 输出词法分析结果到 lexer.txt
             //grammaticalAnalyser.writeTokens(tokenFileProcessor);
