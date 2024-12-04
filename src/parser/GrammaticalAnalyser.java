@@ -421,28 +421,76 @@ public class GrammaticalAnalyser {
     }
 
     private void analyseAddExp() {
+        BranchNode now = currentNode;
+        //记录父节点
         //进入为第一位
+        ArrayList<BranchNode> multiList = new ArrayList<>();
+        ArrayList<LeafNode> signList = new ArrayList<>();
         int i = 0;
         do {
             if (i++ != 0 && (peekToken(0).getType().equals("PLUS") || peekToken(0).getType().equals("MINU")))
             {
                 grammar.add("<AddExp>");
-                grammarTokens.add(new Token("GRAMMAR","<AddExp>",thisNum));
                 nextToken();//+-
-                creatLeafNode();
+                signList.add(new LeafNode(thisToken));
                 nextToken();//第一位
             }
-            creatAndGoToNode("<MulExp>");
+            BranchNode temp = new BranchNode("<MulExp>",null);
+            currentNode = temp;
             analyseMulExp();
-            goBack();
+            currentNode = now;
+            multiList.add(temp);
+            //建树成功，还没有加入
         }while(peekToken(0).getType().equals("PLUS") || peekToken(0).getType().equals("MINU"));
         //退出为最后一位
+        if (signList.isEmpty())
+        {
+            currentNode = now;
+            currentNode.addChild(multiList.get(0));
+            multiList.get(0).setParent(currentNode);
+        }
+        else
+        {
+            BranchNode addExp = new BranchNode("<AddExp>",null);
+            addExp.getChildren().add(multiList.get(0));
+            multiList.get(0).setParent(addExp);
+            BranchNode last = addExp;
+            BranchNode left;
+            BranchNode right;
+            for (i = 0; i < signList.size();i++)
+            {
+                addExp = new BranchNode("<AddExp>",null);
+                left = last;
+                right = multiList.get(i + 1);
+                addExp.getChildren().add(left);
+                left.setParent(addExp);
+
+                addExp.getChildren().add(signList.get(i));
+
+                addExp.getChildren().add(right);
+                right.setParent(addExp);
+
+                last = addExp;
+            }
+            currentNode = now;
+            for (Node node : last.getChildren())
+            {
+                currentNode.getChildren().add(node);
+                if (node instanceof BranchNode)
+                {
+                    ((BranchNode) node).setParent(currentNode);
+                }
+            }
+        }
         grammar.add("<AddExp>");
         grammarTokens.add(new Token("GRAMMAR","<AddExp>",thisNum));
     }
 
     private void analyseMulExp() {
+        BranchNode now = currentNode;
         int i = 0;
+        ArrayList<BranchNode> UnaryList = new ArrayList<>();
+        ArrayList<LeafNode> signList = new ArrayList<>();
         //进入为第一位
         do {
             if (i++ != 0 && (peekToken(0).getType().equals("MULT") || peekToken(0).getType().equals("DIV")
@@ -451,15 +499,59 @@ public class GrammaticalAnalyser {
                 grammar.add("<MulExp>");
                 grammarTokens.add(new Token("GRAMMAR","<MulExp>",thisNum));
                 nextToken();//*/%
-                creatLeafNode();
+                signList.add(new LeafNode(thisToken));
                 nextToken();//进入第一位
             }
-            creatAndGoToNode("<UnaryExp>");
+            BranchNode temp = new BranchNode("<UnaryExp>",null);
+            currentNode = temp;
             analyseUnaryExp();
-            goBack();
+            currentNode = now;
+            UnaryList.add(temp);
         }
         while (peekToken(0).getType().equals("MULT") || peekToken(0).getType().equals("DIV")
                 || peekToken(0).getType().equals("MOD"));
+
+
+        if (signList.isEmpty())
+        {
+            currentNode = now;
+            currentNode.addChild(UnaryList.get(0));
+            UnaryList.get(0).setParent(currentNode);
+        }
+        else
+        {
+            BranchNode addExp = new BranchNode("<MulExp>",null);
+            addExp.getChildren().add(UnaryList.get(0));
+            UnaryList.get(0).setParent(addExp);
+            BranchNode last = addExp;
+            BranchNode left;
+            BranchNode right;
+            for (i = 0; i < signList.size();i++)
+            {
+                addExp = new BranchNode("<MulExp>",null);
+                left = last;
+                right = UnaryList.get(i + 1);
+                addExp.getChildren().add(left);
+                left.setParent(addExp);
+
+                addExp.getChildren().add(signList.get(i));
+
+                addExp.getChildren().add(right);
+                right.setParent(addExp);
+
+                last = addExp;
+            }
+            currentNode = now;
+            for (Node node : last.getChildren())
+            {
+                currentNode.getChildren().add(node);
+                if (node instanceof BranchNode)
+                {
+                    ((BranchNode) node).setParent(currentNode);
+                }
+            }
+        }
+
         grammar.add("<MulExp>");
         grammarTokens.add(new Token("GRAMMAR","<MulExp>",thisNum));
     }

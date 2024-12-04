@@ -1,3 +1,4 @@
+import LLVM.LLVMGenerator;
 import Lexer.Lexer;
 import frontend.*;
 import parser.GrammaticalAnalyser;
@@ -10,7 +11,7 @@ public class Compiler {
         try {
             // 创建 FileProcessor 读取 "testfile.txt"，输出到 "lexer_output.txt"
 
-            FileProcessor tokenFileProcessor = new FileProcessor("testfile.txt", "symbol.txt");
+            FileProcessor tokenFileProcessor = new FileProcessor("testfile.txt", "llvm_ir.txt");
 
             // 创建 FileProcessor 单独处理 error.txt 文件
             FileProcessor errorFileProcessor = new FileProcessor("testfile.txt", "error.txt");
@@ -26,8 +27,11 @@ public class Compiler {
 
             SymbolAnalyser symbolAnalyser = new SymbolAnalyser(grammaticalAnalyser.getRoot(),grammaticalAnalyser.getErrors());
 
-            symbolAnalyser.writeTokens(tokenFileProcessor);
-            symbolAnalyser.writeErrors(errorFileProcessor);
+            //symbolAnalyser.writeTokens(tokenFileProcessor);
+            //symbolAnalyser.writeErrors(errorFileProcessor);
+            LLVMGenerator lg = new LLVMGenerator(grammaticalAnalyser.getRoot());
+            lg.analyseCompUnit();
+            lg.print(tokenFileProcessor);
 
             // 输出词法分析结果到 lexer.txt
             //grammaticalAnalyser.writeTokens(tokenFileProcessor);

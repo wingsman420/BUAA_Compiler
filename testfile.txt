@@ -1,19 +1,49 @@
-char func1(char b[]) {
-    return 'c';
+const int q=5;
+void dd()
+{
+    printf("this is d\n");
+    return;
 }
+void ee()
+{
 
-
-int main(){
-    int c;
-    int d[func1(c)];
-    if(1)
+}
+int aa()
+{
+   int m=2;
+   m=m+1;
+   return m;
+}
+int bb(int j)
+{
+  j=j+1;
+  return j;
+}
+int cc(int k,int l)
+{
+   k=k+l;
+   return k;
+}
+int main()
+{
+    int a,b,c,e;
+    int j=3,k=2,l=4,z=0,x=1;
+    e=getint();
+    a=aa()+1;
+    b=bb(j)+1;
+    c=cc(k,l)-2;
+    if(!z)
     {
-        return func1(c);
+        x=2;
     }
-    for(;func1(c);)//e
-    {
-        printf("%d",func1(c));
-    }
-    c = func1(c);//e
+    dd();
+    ee();
+    printf("%d\n",a);
+    printf("%d\n",b);
+    printf("%d\n",c);
+    printf("%d\n",e);
+    printf("%d\n",x);
     return 0;
 }
+
+

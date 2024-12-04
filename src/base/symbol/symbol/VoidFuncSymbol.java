@@ -21,4 +21,14 @@ public class VoidFuncSymbol extends Symbol {
     public ArrayList<Symbol> getArgs() {
         return args;
     }
+
+    @Override
+    public int getinitValueByPosition(int length) {
+        return 0;
+    }
+
+    @Override
+    public int getInitValue() {
+        return 0;
+    }
 }

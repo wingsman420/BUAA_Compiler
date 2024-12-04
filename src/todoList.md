@@ -4,7 +4,7 @@
 
 *^常量声明 ConstDecl → 'const' BType ConstDef { ',' ConstDef } ';' // i
 
-%基本类型 BType → 'int' | 'char'
+%基本类型 BType → 'int' | 'char' 
     
 *^常量定义 ConstDef → Ident [ '[' ConstExp ']' ] '=' ConstInitVal // k
 

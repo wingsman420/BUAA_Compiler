@@ -1,0 +1,1438 @@
+package LLVM;
+
+import LLVM.RealValue.*;
+import LLVM.classes.BlockItems.BasicBlock;
+import LLVM.classes.BlockItems.Instruction;
+import LLVM.classes.BlockItems.items.*;
+import LLVM.classes.module.*;
+import LLVM.classes.module.Module;
+import Tree.BranchNode;
+import Tree.LeafNode;
+import Tree.Node;
+import base.symbol.Symbol;
+import base.symbol.SymbolTable;
+import base.symbol.symbol.*;
+import frontend.FileProcessor;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+public class LLVMGenerator {
+
+    private Module module;
+
+    private BranchNode ASTRoot;
+    private BranchNode ASTNow;
+    private SymbolTable STRoot;
+    private SymbolTable STNow;
+    private int idCounter;
+    private int tableIdCounter = 0;
+    private Stack<Integer> idStack;
+    private String nowReturnType;
+    private int ConstStr;
+
+    public LLVMGenerator(BranchNode ASTRoot) {
+        this.module = new Module();
+        this.ASTRoot = ASTRoot;
+        this.STRoot = new SymbolTable(null,tableIdCounter++);
+        this.STNow = STRoot;
+        this.ASTNow = ASTRoot;
+        this.idCounter = 0;
+        this.idStack = new Stack<>();
+        ConstStr = 0;
+
+    }
+
+
+
+    public void analyseCompUnit()
+    {
+        //从根节点进来
+        int i = 0;
+        BranchNode temp = ASTNow;
+        for (Node node : temp.getChildren())
+        {
+            if (node.getType().equals("<Decl>"))
+            {
+                ASTNow = (BranchNode) ASTNow.getChildren().get(i);
+                analyseGlobalDecl();
+                ASTNow = ASTNow.getParent();
+            }
+            else if (node.getType().equals("<FuncDef>"))
+            {
+                //System.out.println(ASTNow.getType());
+                ASTNow = (BranchNode) ASTNow.getChildren().get(i);
+                analyseFuncDef();
+                ASTNow = ASTNow.getParent();
+            }
+            else
+            {
+                ASTNow = (BranchNode) ASTNow.getChildren().get(i);
+                analyseMainFuncDef();
+                ASTNow = ASTNow.getParent();
+            }
+            i++;
+        }
+    }
+
+    private void analyseGlobalDecl() {
+        ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+        //只有一个声明，所以直接进入
+        if (ASTNow.getType().equals("<ConstDecl>"))
+        {
+            //常量
+            //ConstDecl → 'const' BType ConstDef { ',' ConstDef } ';'
+            analyseGlobalConstDecl();
+            ASTNow = ASTNow.getParent();
+        }
+        else
+        {
+            //变量
+            analyseGlobalVarDecl();
+            ASTNow = ASTNow.getParent();
+        }
+    }
+
+    private void analyseGlobalVarDecl() {
+        String type = ASTNow.getChildren().get(0).getType();
+        //Btype
+        for (Node node : ASTNow.getChildren()) {
+            if (node.getType().equals("<VarDef>"))
+            {
+                ASTNow = (BranchNode) node;
+                analyseGlobalVarDef(type);
+                ASTNow = ASTNow.getParent();
+            }
+        }
+    }
+
+    private void analyseGlobalVarDef(String type) {
+        String name = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+        if (ASTNow.getChildren().size() > 3)
+        {
+            //Ident [ '[' ConstExp ']' ] | Ident [ '[' ConstExp ']' ] '=' InitVal
+            ExpCalculator ec = new ExpCalculator(STNow);
+            int length = ec.calculateConstExp((BranchNode) ASTNow.getChildren().get(2));
+            if (type.equals("CHARTK"))
+            {
+                Symbol tmp =  new CharArraySymbol(1,1,name);
+                CharArray rv = new CharArray(length);
+                if (ASTNow.getChildren().size() > 4)
+                {
+                    rv.setValue(((LeafNode)((BranchNode)ASTNow.getChildren().get(5)).getChildren().get(0)).getToken().getValue());
+                }
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,false);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+            else
+            {
+                Symbol tmp =  new IntArraySymbol(1,1,name);
+                IntArray rv = new IntArray(length);
+                if (ASTNow.getChildren().size() > 4)
+                {
+                    ArrayList<Integer> values = new ArrayList<>();
+                    for (Node node : ((BranchNode)ASTNow.getChildren().get(5)).getChildren())
+                    {
+                        if (node.getType().equals("<ConstExp>"))
+                        {
+                            values.add(ec.calculateConstExp((BranchNode) node));
+                        }
+                    }
+                    rv.addToList(values);
+                }
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,false);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+        }
+        else
+        {
+            //VarDef → Ident  | Ident  '=' InitVal
+            ExpCalculator ec = new ExpCalculator(STNow);
+            if (type.equals("CHARTK"))
+            {
+                Symbol tmp =  new CharSymbol(1,1,name);
+                AChar rv = new AChar();
+                if (ASTNow.getChildren().size() > 1)
+                {
+                    rv.setInitValue(ec.calculateConstExp((BranchNode) ((BranchNode) ASTNow.getChildren().get(2)).getChildren().get(0)));
+                }
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,false);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+            else
+            {
+                Symbol tmp =  new IntSymbol(1,1,name);
+                AInt rv = new AInt();
+                if (ASTNow.getChildren().size() > 1)
+                {
+                    rv.setInitValue(ec.calculateConstExp((BranchNode) ((BranchNode)ASTNow.getChildren().get(2)).getChildren().get(0)));
+                }
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,false);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+        }
+    }
+
+    private void analyseGlobalConstDecl() {
+        String type = ASTNow.getChildren().get(1).getType();
+        //Btype
+        for (Node node : ASTNow.getChildren()) {
+            if (node.getType().equals("<ConstDef>"))
+            {
+                ASTNow = (BranchNode) node;
+                analyseGlobalConstDef(type);
+                ASTNow = ASTNow.getParent();
+            }
+        }
+
+    }
+
+    private void analyseGlobalConstDef(String type) {
+        String name = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+        if (ASTNow.getChildren().size() > 3)
+        {
+            //ConstDef → Ident '[' ConstExp ']'  '=' ConstInitVal
+            ExpCalculator ec = new ExpCalculator(STNow);
+            int length = ec.calculateConstExp((BranchNode) ASTNow.getChildren().get(2));
+            if (type.equals("CHARTK"))
+            {
+                Symbol tmp =  new ConstCharArraySymbol(1,1,name);
+                CharArray rv = new CharArray(length);
+                rv.setValue(((LeafNode)((BranchNode)ASTNow.getChildren().get(5)).getChildren().get(0)).getToken().getValue());
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,true);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+            else
+            {
+                Symbol tmp =  new ConstIntArraySymbol(1,1,name);
+                IntArray rv = new IntArray(length);
+                ArrayList<Integer> values = new ArrayList<>();
+                for (Node node : ((BranchNode)ASTNow.getChildren().get(5)).getChildren())
+                {
+                    if (node.getType().equals("<ConstExp>"))
+                    {
+                        values.add(ec.calculateConstExp((BranchNode) node));
+                    }
+                }
+                rv.addToList(values);
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,true);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+        }
+        else
+        {
+            //ConstDef → Ident '=' ConstInitVal
+            ExpCalculator ec = new ExpCalculator(STNow);
+            if (type.equals("CHARTK"))
+            {
+                Symbol tmp =  new ConstCharSymbol(1,1,name);
+                AChar rv = new AChar();
+                rv.setInitValue(ec.calculateConstExp((BranchNode) ((BranchNode) ASTNow.getChildren().get(2)).getChildren().get(0)));
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,true);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+            else
+            {
+                Symbol tmp =  new ConstIntSymbol(1,1,name);
+                AInt rv = new AInt();
+                rv.setInitValue(ec.calculateConstExp((BranchNode) ((BranchNode)ASTNow.getChildren().get(2)).getChildren().get(0)));
+                tmp.setRv(rv);
+                STNow.symbols.add(tmp);
+                GlobalVariable gv = new GlobalVariable(idCounter++,name,type,true);
+                gv.setValue(rv);
+                module.addGlobalVariable(gv);
+            }
+        }
+    }
+
+    private void analyseMainFuncDef()
+    {
+        //MainFuncDef → 'int' 'main' '(' ')' Block
+        String type = "INTTK";
+        String name = "main";
+        Function function = new Function(idCounter++,name,type);
+        //进入
+        idStack.add(idCounter);
+        idCounter = 0;
+        SymbolTable st = new SymbolTable(STNow,1);
+        STNow.children.add(st);
+        STNow = st;
+        nowReturnType = "INTTK";
+        for (Node node : ASTNow.getChildren()) {
+            if (node.getType().equals("<Block>"))
+            {
+                ASTNow = (BranchNode) node;
+                function.addBasicBlock(analyseFunctionBlock(name,new ArrayList<>()));
+                ASTNow = ASTNow.getParent();
+                break;
+            }
+        }
+        //退出
+        STNow = STNow.fatherTable;
+        idCounter = idStack.pop();
+        module.addFunction(function);
+    }
+
+
+    private void analyseFuncDef()
+    {
+        //FuncDef → FuncType Ident '(' [FuncFParams] ')' Block
+        String type = ASTNow.getChildren().get(0).getType();
+        //int/char/void
+        String name = ((LeafNode)ASTNow.getChildren().get(1)).getToken().getValue();
+        Function function = new Function(idCounter++,name,type);
+        //进入function
+        idStack.add(idCounter);
+        idCounter = 0;
+        SymbolTable st = new SymbolTable(STNow,1);
+        STNow.children.add(st);
+        STNow = st;
+        ArrayList<Argument> args = new ArrayList();
+        for (Node node : ASTNow.getChildren()) {
+            if (node.getType().equals("RPARENT"))
+            {
+                break;
+            }
+            if (node.getType().equals("<FuncFParams>"))
+            {
+                ASTNow = (BranchNode) node;
+                args.addAll(analyseFuncFParams());
+                ASTNow = ASTNow.getParent();
+                break;
+            }
+        }
+        function.addArgument(args);
+        module.addFunction(function);
+        //先加入防止递归
+        //分析基本块
+        nowReturnType = type;
+        for (Node node : ASTNow.getChildren()) {
+            if (node.getType().equals("<Block>"))
+            {
+                ASTNow = (BranchNode) node;
+                function.addBasicBlock(analyseFunctionBlock(name,args));
+                ASTNow = ASTNow.getParent();
+                break;
+            }
+        }
+        //退出
+        STNow = STNow.fatherTable;
+        idCounter = idStack.pop();
+        if (function.getReturnType().equals("VOIDTK"))
+        {
+            RetInst ri = new RetInst(0);
+            function.getBasicBlocks().get(0).addInstruction(ri);
+        }
+        module.deleteFunction(function.name);
+        module.addFunction(function);
+        //不存在局部函数，所以我认为不需要给这些函数加入符号表
+    }
+
+    private ArrayList<Argument> analyseFuncFParams()
+    {
+        ArrayList<Argument> args = new ArrayList<>();
+        BranchNode temp = ASTNow;
+        for (Node node : temp.getChildren()) {
+            if (node.getType().equals("<FuncFParam>"))
+            {
+                ASTNow = (BranchNode) node;
+                args.add(analyseFuncFParam());
+                ASTNow = ASTNow.getParent();
+            }
+        }
+        return args;
+    }
+
+    private Argument analyseFuncFParam()
+    {
+        String type = ASTNow.getChildren().get(0).getType();
+        String name = ((LeafNode)ASTNow.getChildren().get(1)).getToken().getValue();
+        boolean isArray = false;
+        if (ASTNow.getChildren().size() > 2)
+        {
+            isArray = true;
+        }
+        Symbol ii;
+        if (type.equals("CHARTK"))
+        {
+            if (isArray)
+            {
+                ii = new CharArraySymbol(idCounter,1,name);
+
+            }
+            else
+            {
+                ii = new CharSymbol(idCounter,1,name);
+            }
+        }
+        else
+        {
+            if (isArray)
+            {
+                ii = new IntArraySymbol(idCounter,1,name);
+            }
+            else
+            {
+                ii = new IntSymbol(idCounter,1,name);
+            }
+        }
+        STNow.symbols.add(ii);
+        return new Argument(idCounter++,name,type,isArray);
+    }
+
+
+    private BasicBlock analyseFunctionBlock(String name,ArrayList<Argument> args)
+    {
+        //Block → '{' { BlockItem } '}'
+        BasicBlock bb = new BasicBlock(idCounter++,name);
+        //先给形式参数分配空间
+        for (Argument arg : args)
+        {
+            if (arg.getType().equals("INTTK"))
+            {
+                if (arg.isArray())
+                {
+                    AllocateInst ai = new AllocateInst(idCounter++,"i32*");
+                    bb.addInstruction(ai);
+                    int org = STNow.legalVar(arg.getName()).getId();
+                    STNow.legalVar(arg.getName()).setid(idCounter - 1);
+                    StoreInst si = new StoreInst(-1,org,idCounter - 1,true,false,true);
+                    bb.addInstruction(si);
+                }
+                else
+                {
+                    AllocateInst ai = new AllocateInst(idCounter++,"i32");
+                    bb.addInstruction(ai);
+                    int org = STNow.legalVar(arg.getName()).getId();
+                    STNow.legalVar(arg.getName()).setid(idCounter - 1);
+                    StoreInst si = new StoreInst(-1,org,idCounter - 1,true,false,false);
+                    bb.addInstruction(si);
+                }
+            }
+            else
+            {
+                if (arg.isArray())
+                {
+                    AllocateInst ai = new AllocateInst(idCounter++,"i8*");
+                    bb.addInstruction(ai);
+                    int org = STNow.legalVar(arg.getName()).getId();
+                    STNow.legalVar(arg.getName()).setid(idCounter - 1);
+                    StoreInst si = new StoreInst(-1,org,idCounter - 1,false,false,true);
+                    bb.addInstruction(si);
+                }
+                else
+                {
+                    AllocateInst ai = new AllocateInst(idCounter++,"i8");
+                    bb.addInstruction(ai);
+                    int org = STNow.legalVar(arg.getName()).getId();
+                    STNow.legalVar(arg.getName()).setid(idCounter - 1);
+                    StoreInst si = new StoreInst(-1,org,idCounter - 1,false,false,false);
+                    bb.addInstruction(si);
+                }
+            }
+        }
+        BranchNode temp = ASTNow;
+        for (Node node : temp.getChildren()) {
+            if (node.getType().equals("<BlockItem>"))
+            {
+                ASTNow = (BranchNode) node;
+                bb.addInstruction(analyseBlockItem());
+                ASTNow = ASTNow.getParent();
+            }
+        }
+        return bb;
+    }
+
+    private ArrayList<Instruction> analyseBlockItem()
+    {
+        //BlockItem → Decl | Stmt
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (ASTNow.getChildren().get(0).getType().equals("<Stmt>"))
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseStmt()) ;
+            ASTNow = ASTNow.getParent();
+        }
+        else
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseDecl());
+            ASTNow = ASTNow.getParent();
+        }
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseDecl()
+    {
+        String type;
+        ArrayList<Instruction> items = new ArrayList<>();
+        ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+        if (ASTNow.getType().equals("<ConstDecl>"))
+        {
+            type =  ASTNow.getChildren().get(1).getType();
+            //ConstDecl → 'const' BType ConstDef { ',' ConstDef } ';'
+            for (Node node : ASTNow.getChildren()) {
+                if (node.getType().equals("<ConstDef>"))
+                {
+                    ASTNow = (BranchNode) node;
+                    items.addAll(analyseConstDef(type));
+                    ASTNow = ASTNow.getParent();
+                }
+            }
+
+        }
+        else
+        {
+            type =  ASTNow.getChildren().get(0).getType();
+            //VarDecl → BType VarDef { ',' VarDef } ';'
+            for (Node node : ASTNow.getChildren()) {
+                if (node.getType().equals("<VarDef>"))
+                {
+                    ASTNow = (BranchNode) node;
+                    items.addAll(analyseVarDef(type));
+                    ASTNow = ASTNow.getParent();
+                }
+            }
+        }
+        ASTNow = ASTNow.getParent();
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseVarDef(String type)
+    {
+        //Ident [ '[' ConstExp ']' ] | Ident [ '[' ConstExp ']' ] '=' InitVal
+        ArrayList<Instruction> items = new ArrayList<>();
+        String name = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+        if (ASTNow.getChildren().size() > 1 && ASTNow.getChildren().get(1).getType().equals("LBRACK"))
+        {
+            //说明是数组
+            ExpCalculator ec = new ExpCalculator(STNow);
+            int length = ec.calculateConstExp((BranchNode) ASTNow.getChildren().get(2));
+            if (type.equals("INTTK"))
+            {
+                IntArraySymbol symbol = new IntArraySymbol(idCounter++,1,name);
+                //没有初始值
+                IntArray rv = new IntArray(length);
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                //int 数组
+                AllocateInst inst = new AllocateInst(idCounter - 1,"[" + length + " x i32]");
+                items.add(inst);
+            }
+            else
+            {
+                //字符串数组
+                CharArraySymbol symbol = new CharArraySymbol(idCounter++,1,name);
+                //没有初始值
+                CharArray rv = new CharArray(length);
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                AllocateInst inst = new AllocateInst(idCounter - 1 ,"[" + length + " x i8]");
+            }
+            //算初始值
+            if (ASTNow.getChildren().size() > 4)
+            {
+                ASTNow = (BranchNode) ASTNow.getChildren().get(5);
+                items.addAll(analyseInitVal(type,idCounter - 1,length));
+                ASTNow = ASTNow.getParent();
+            }
+            //存初始值在上面做了
+        }
+        else
+        {
+            //说明是单个整数、字符
+            if (type.equals("INTTK"))
+            {
+                IntSymbol symbol = new IntSymbol(idCounter++,1,name);
+                AInt rv = new AInt();
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                AllocateInst inst = new AllocateInst(idCounter - 1,"i32");
+                items.add(inst);
+            }
+            else
+            {
+                CharSymbol symbol = new CharSymbol(idCounter++,1,name);
+                AChar rv = new AChar();
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                AllocateInst inst = new AllocateInst(idCounter - 1,"i8");
+                items.add(inst);
+            }
+            if (ASTNow.getChildren().size() > 2)
+            {
+                ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+                items.addAll(analyseInitVal(type,idCounter - 1,0));
+                ASTNow = ASTNow.getParent();
+            }
+        }
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseInitVal(String type, int name,int length){
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (type.equals("INTTK"))
+        {
+            if (length != 0)
+            {
+                int tmp;
+                int i = 0;
+                for (Node node : ASTNow.getChildren()) {
+                    if (node.getType().equals("<Exp>"))
+                    {
+                        ASTNow = (BranchNode) node;
+                        items.addAll(analyseExp());
+                        ASTNow = ASTNow.getParent();
+                        tmp = items.get(items.size() - 1).getId();
+                        GepInst inst = new GepInst(idCounter++,length,"%" + name,i,true);
+                        items.add(inst);
+                        StoreInst si = new StoreInst(-1,tmp,idCounter - 1,true,false);
+                        items.add(si);
+                        i++;
+                    }
+                }
+            }
+            else
+            {
+                //不是数组
+                int tmp;
+                ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+                items.addAll(analyseExp());
+                ASTNow = ASTNow.getParent();
+                tmp = items.get(items.size() - 1).getId();
+                StoreInst si = new StoreInst(-1,tmp,name,true,false);
+                items.add(si);
+            }
+        }
+        else
+        {
+            //char
+            if (length != 0)
+            {
+                String initValue = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+                for (int i = 0;i < length;i++)
+                {
+                    if (i < initValue.length())
+                    {
+                        GepInst inst = new GepInst(idCounter++,length,"%" + name,i,true);
+                        items.add(inst);
+                        StoreInst si = new StoreInst(-1,initValue.charAt(i),idCounter - 1,false,true);
+                        items.add(si);
+                    }
+                    else
+                    {
+                        GepInst inst = new GepInst(idCounter++,length,"%" + name,i,true);
+                        items.add(inst);
+                        StoreInst si = new StoreInst(-1,0,idCounter - 1 ,false,true);
+                        items.add(si);
+                    }
+                }
+            }
+            else
+            {
+                int tmp;
+                ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+                items.addAll(analyseExp());
+                ASTNow = ASTNow.getParent();
+                tmp = items.get(items.size() - 1).getId();
+                TruncInst ti = new TruncInst(idCounter++,true,idCounter - 2);
+                items.add(ti);
+                StoreInst si = new StoreInst(-1,items.get(items.size() - 1).getId(),name,false,true);
+                items.add(si);
+            }
+        }
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseConstDef(String type)
+    {
+        //Ident [ '[' ConstExp ']' ] '=' ConstInitVal
+        ArrayList<Instruction> items = new ArrayList<>();
+        String name = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+        if (ASTNow.getChildren().get(1).getType().equals("LBRACK"))
+        {
+            //说明是数组
+            ExpCalculator ec = new ExpCalculator(STNow);
+            int length = ec.calculateConstExp((BranchNode) ASTNow.getChildren().get(2));
+            if (type.equals("INTTK"))
+            {
+                ConstIntArraySymbol symbol = new ConstIntArraySymbol(idCounter++,1,name);
+                //没有初始值
+                IntArray rv = new IntArray(length);
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                //int 数组
+                AllocateInst inst = new AllocateInst(idCounter - 1,"[" + length + " x i32]");
+                items.add(inst);
+            }
+            else
+            {
+                //字符串数组
+                ConstCharArraySymbol symbol = new ConstCharArraySymbol(idCounter++,1,name);
+                //没有初始值
+                CharArray rv = new CharArray(length);
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                AllocateInst inst = new AllocateInst(idCounter - 1,"[" + length + " x i8]");
+            }
+            //算初始值
+            if (ASTNow.getChildren().size() > 4)
+            {
+                ASTNow = (BranchNode) ASTNow.getChildren().get(5);
+                items.addAll(analyseInitVal(type,idCounter - 1,length));
+                ASTNow = ASTNow.getParent();
+            }
+            //存初始值在上面做了
+        }
+        else
+        {
+            //说明是单个整数、字符
+            if (type.equals("INTTK"))
+            {
+                ConstIntSymbol symbol = new ConstIntSymbol(idCounter++,1,name);
+                AInt rv = new AInt();
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                AllocateInst inst = new AllocateInst(idCounter - 1,"i32");
+                items.add(inst);
+            }
+            else
+            {
+                ConstCharSymbol symbol = new ConstCharSymbol(idCounter++,1,name);
+                AChar rv = new AChar();
+                symbol.setRv(rv);
+                STNow.symbols.add(symbol);
+                AllocateInst inst = new AllocateInst(idCounter - 1,"i8");
+                items.add(inst);
+            }
+            if (ASTNow.getChildren().size() > 2)
+            {
+                int a = 0;
+                ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+                items.addAll(analyseInitVal(type,idCounter - 1,0));
+                ASTNow = ASTNow.getParent();
+            }
+        }
+        return items;
+    }
+
+
+    private ArrayList<Instruction> analyseStmt()
+    {
+        /*Stmt → LVal '=' Exp ';' #
+        | [Exp] ';' #
+        | Block
+        | 'if' '(' Cond ')' Stmt [ 'else' Stmt ]
+        | 'for' '(' [ForStmt] ';' [Cond] ';' [ForStmt] ')' Stmt
+        | 'break' ';' | 'continue' ';'
+        | 'return' [Exp] ';' #
+        | LVal '=' 'getint''('')'';' #
+        | LVal '=' 'getchar''('')'';' #
+        | 'printf''('StringConst {','Exp}')'';' # */
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (ASTNow.getChildren().get(0).getType().equals("<Exp>"))
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseExp());
+            ASTNow = ASTNow.getParent();
+        }
+        else if (ASTNow.getChildren().get(0).getType().equals("RETURNTK"))
+        {
+            if (ASTNow.getChildren().get(1).getType().equals("SEMICN"))
+            {
+                RetInst inst = new RetInst(idCounter);
+                items.add(inst);
+            }
+            else
+            {
+                ASTNow = (BranchNode) ASTNow.getChildren().get(1);
+                items.addAll(analyseExp());
+                ASTNow = ASTNow.getParent();
+                //需要考虑用不用类型转换
+                //只有需要char才要转
+                if (!nowReturnType.equals("INTTK"))
+                {
+                    TruncInst ti = new TruncInst(idCounter++,true,idCounter - 2);
+                    items.add(ti);
+                }
+                RetInst inst = new RetInst(idCounter++,nowReturnType.equals("INTTK"),false,idCounter - 2);
+                items.add(inst);
+            }
+        }
+        else if(ASTNow.getChildren().get(0).getType().equals("<LVal>"))
+        {
+            //可能是赋值或者读写
+            if (ASTNow.getChildren().get(2).getType().equals("<Exp>"))
+            {
+                //赋值
+                int i = 0;
+                ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+                items.addAll(analyseExp());
+                ASTNow = ASTNow.getParent();
+                int temp = idCounter - 1;
+                //上面是存储的值
+                String address;
+                if (((BranchNode)ASTNow.getChildren().get(0)).getChildren().size() == 1)
+                {
+                    //非数组
+                    address = findSymbol(((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue(),STNow);
+                    boolean isInt = isIntSymbol(((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue(),STNow);
+                    if (address.charAt(0) == '%')
+                    {
+                        if (!isInt)
+                        {
+                            TruncInst ti = new TruncInst(idCounter++,true,temp);
+                            items.add(ti);
+                        }
+                        StoreInst inst = new StoreInst(-1,items.get(items.size() - 1).getId(),Integer.parseInt(address.substring(1)),isInt,false);
+                        items.add(inst);
+                    }
+                    else
+                    {
+                        if (!isInt)
+                        {
+                            TruncInst ti = new TruncInst(idCounter++,true,temp);
+                            items.add(ti);
+                        }
+                        StoreInst inst = new StoreInst(-1,items.get(items.size() - 1).getId(),address,isInt,false);
+                        items.add(inst);
+                    }
+                }
+                else
+                {
+                    //需要先找到数组的第几位
+                    ASTNow = (BranchNode) ((BranchNode) ASTNow.getChildren().get(0)).getChildren().get(2);
+                    items.addAll(analyseExp());
+                    ASTNow = ASTNow.getParent();
+                    int pos = idCounter;
+                    //这是第几位，下一步是找名字
+                    String realName = ((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue();
+                    String name = findSymbol(realName,STNow);
+                    boolean isInt = isIntSymbol(realName,STNow);
+                    GepInst inst = new GepInst(idCounter++,"%" + name,pos,isInt);
+                    items.add(inst);
+                    //现在找到地址了
+                    if (!isInt)
+                    {
+                        TruncInst ti = new TruncInst(idCounter++,true,temp);
+                        items.add(ti);
+                    }
+                    StoreInst si = new StoreInst(-1,items.get(items.size() - 1).getId(),idCounter - 1,isInt,false);
+                    items.add(si);
+                }
+            }
+            else
+            {
+                int temp = 0;
+                if (ASTNow.getChildren().get(2).getType().equals("GETINTTK"))
+                {
+                    CallFuncInst inst = new CallFuncInst(idCounter++,"@getint()","INTTK");
+                    items.add(inst);
+                    temp = idCounter - 1;
+                }
+                else if (ASTNow.getChildren().get(2).getType().equals("GETCHARTK"))
+                {
+                    CallFuncInst inst = new CallFuncInst(idCounter++,"@getchar()","INTTK");
+                    items.add(inst);
+                    temp = idCounter - 1;
+                }
+                String address;
+                if (((BranchNode)ASTNow.getChildren().get(0)).getChildren().size() == 1)
+                {
+                    //非数组
+                    address = findSymbol(((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue(),STNow);
+                    boolean isInt = isIntSymbol(((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue(),STNow);
+                    if (address.charAt(0) == '%')
+                    {
+                        if (!isInt)
+                        {
+                            TruncInst ti = new TruncInst(idCounter++,true,temp);
+                            items.add(ti);
+                        }
+                        StoreInst inst = new StoreInst(-1,items.get(items.size() - 1).getId(),Integer.parseInt(address.substring(1)),isInt,false);
+                        items.add(inst);
+                    }
+                    else
+                    {
+                        if (!isInt)
+                        {
+                            TruncInst ti = new TruncInst(idCounter++,true,temp);
+                            items.add(ti);
+                        }
+                        StoreInst inst = new StoreInst(-1,items.get(items.size() - 1).getId(),address,isInt,false);
+                        items.add(inst);
+                    }
+                }
+                else
+                {
+                    //需要先找到数组的第几位
+                    ASTNow = (BranchNode) ((BranchNode) ASTNow.getChildren().get(0)).getChildren().get(2);
+                    items.addAll(analyseExp());
+                    ASTNow = ASTNow.getParent();
+                    int pos = idCounter;
+                    //这是第几位，下一步是找名字
+                    String realName = ((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue();
+                    String name = findSymbol(realName,STNow);
+                    boolean isInt = isIntSymbol(realName,STNow);
+                    GepInst inst = new GepInst(idCounter++,"%" + name,pos,isInt);
+                    items.add(inst);
+                    //现在找到地址了
+                    if (!isInt)
+                    {
+                        TruncInst ti = new TruncInst(idCounter++,true,temp);
+                        items.add(ti);
+                    }
+                    StoreInst si = new StoreInst(-1,temp,idCounter - 1,isInt,false);
+                    items.add(si);
+                }
+            }
+        }
+        else if (ASTNow.getChildren().get(0).getType().equals("PRINTFTK"))
+        {
+            //首先需要分解字符串
+            ArrayList<String> parts = new ArrayList<>(splitString(((LeafNode)ASTNow.getChildren().get(2)).getToken().getValue()));
+            int i = 0;
+            for (String part : parts)
+            {
+                //'printf''('StringConst {','Exp}')'';'
+                //对应关系2i+4
+                if (part.equals("%d"))
+                {
+                    ASTNow = (BranchNode) ASTNow.getChildren().get(2*i + 4);
+                    items.addAll(analyseExp());
+                    ASTNow = ASTNow.getParent();
+                    int temp = idCounter - 1;
+                    //上面是值
+                    CallFuncInst inst = new CallFuncInst("@putint(i32 %"+ temp + ")","VOIDTK");
+                    items.add(inst);
+                    i++;
+                }
+                else if(part.equals("%c"))
+                {
+                    ASTNow = (BranchNode) ASTNow.getChildren().get(2*i + 4);
+                    items.addAll(analyseExp());
+                    ASTNow = ASTNow.getParent();
+                    int temp = idCounter - 1;
+                    //上面是值
+                    CallFuncInst inst = new CallFuncInst("@putch(i32 %"+ temp + ")","VOIDTK");
+                    items.add(inst);
+                    i++;
+                }
+                else
+                {
+                    //常量表达式
+                    int length = part.length() + 1;
+                    ConstString cs = new ConstString(false,".str." + ConstStr,part,length);
+                    module.addConstString(cs);
+                    CallFuncInst inst = new CallFuncInst("@putstr(i8* getelementptr inbounds (["+ length + " x i8], ["
+                            + length + " x i8]* " + cs.getName() + ", i64 0, i64 0))","VOIDTK");
+                    items.add(inst);
+                    ConstStr++;
+                }
+            }
+        }
+        else if(ASTNow.getChildren().get(0).getType().equals("<Block>"))
+        {
+
+            SymbolTable st = new SymbolTable(STNow,1);
+            STNow.children.add(st);
+            STNow = st;
+            for (Node node : ((BranchNode)ASTNow.getChildren().get(0)).getChildren()) {
+                if (node.getType().equals("<BlockItem>"))
+                {
+                    ASTNow = (BranchNode) node;
+                    items.addAll(analyseBlockItem());
+                    ASTNow = ASTNow.getParent();
+                    ASTNow = ASTNow.getParent();
+                }
+            }
+            STNow = STNow.fatherTable;
+        }
+        else if (ASTNow.getChildren().get(0).getType().equals("IFTK"))
+        {
+            BasicBlock trueEnd = new BasicBlock(idCounter++);
+        }
+        //其他部分没有写
+        return items;
+    }
+
+    private boolean isIntSymbol(String name,SymbolTable low) {
+        for (Symbol symbol: low.symbols)
+        {
+            if (symbol.getName().equals(name))
+            {
+                return symbol.ISInt();
+            }
+        }
+        if (low.fatherTable != null)
+        {
+            return isIntSymbol(name,low.fatherTable);
+        }
+        else
+        {
+            return true;
+        }
+    }
+
+    private String findSymbol(String name,SymbolTable low) {
+        for (Symbol symbol: low.symbols)
+        {
+            if (symbol.getName().equals(name))
+            {
+                if (low.fatherTable != null)
+                {
+                    return "%" + symbol.getId();
+                }
+                else
+                {
+                    return "@" + symbol.getName();
+                }
+            }
+        }
+        if (low.fatherTable != null)
+        {
+            return findSymbol(name,low.fatherTable);
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    private ArrayList<Instruction> analyseExp()
+    {
+        ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+        ArrayList<Instruction> items = new ArrayList<>(analyseAddExp());
+        ASTNow = ASTNow.getParent();
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseAddExp()
+    {
+        //AddExp → MulExp | AddExp ('+' | '−') MulExp
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (ASTNow.getChildren().size() > 1)
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+            items.addAll(analyseMulExp());
+            ASTNow = ASTNow.getParent();
+            int temp1 = idCounter - 1;
+            //后面的值
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseAddExp());
+            ASTNow = ASTNow.getParent();
+            int temp2 = idCounter - 1;
+            //前面的值
+            if (ASTNow.getChildren().get(1).getType().equals("PLUS"))
+            {
+                AddInst ai = new AddInst(idCounter++,temp1,temp2);
+                items.add(ai);
+            }
+            else
+            {
+                SubInst si = new SubInst(idCounter++,temp1,temp2);
+                items.add(si);
+            }
+        }
+        else
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseMulExp());
+            ASTNow = ASTNow.getParent();
+        }
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseMulExp()
+    {
+        //MulExp → UnaryExp | MulExp ('*' | '/' | '%') UnaryExp
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (ASTNow.getChildren().size() > 1)
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+            items.addAll(analyseUnaryExp());
+            ASTNow = ASTNow.getParent();
+            int temp1 = idCounter - 1;
+            //后面的值
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseMulExp());
+            ASTNow = ASTNow.getParent();
+            int temp2 = idCounter - 1;
+            //前面的值
+            if (ASTNow.getChildren().get(1).getType().equals("MULT"))
+            {
+                MulInst ai = new MulInst(idCounter++,temp1,temp2);
+                items.add(ai);
+            }
+            else if (ASTNow.getChildren().get(1).getType().equals("MOD"))
+            {
+                SremInst si = new SremInst(idCounter++,temp1,temp2);
+                items.add(si);
+            }
+            else
+            {
+                DivInst di = new DivInst(idCounter++,temp1,temp2);
+                items.add(di);
+            }
+        }
+        else
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseUnaryExp());
+            ASTNow = ASTNow.getParent();
+        }
+        return items;
+    }
+
+    private ArrayList<Instruction> analyseUnaryExp()
+    {
+        //UnaryExp → PrimaryExp | Ident '(' [FuncRParams] ')' | UnaryOp UnaryExp
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (ASTNow.getChildren().get(0).getType().equals("<PrimaryExp>"))
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analysePrimaryExp());
+            ASTNow = ASTNow.getParent();
+        }
+        else if (ASTNow.getChildren().get(0).getType().equals("<UnaryOp>"))
+        {
+            //先不考虑bool
+            ASTNow = (BranchNode) ASTNow.getChildren().get(1);
+            items.addAll(analyseUnaryExp());
+            ASTNow = ASTNow.getParent();
+            if (((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0).getType().equals("PLUS"))
+            {
+
+            }
+            else if (((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0).getType().equals("MINU"))
+            {
+                ReverseInst ri = new ReverseInst(idCounter++,idCounter - 2);
+                items.add(ri);
+            }
+        }
+        else
+        {
+            //函数调用
+            //考虑传参类型
+            String name = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+            if (ASTNow.getChildren().size() < 4)
+            {
+                //没参数
+                if (module.getFunctionType(name).equals("VOIDTK"))
+                {
+                    CallFuncInst cf = new CallFuncInst(-1,"@" + name + "()",module.getFunctionType(name));
+                    items.add(cf);
+                }
+                else
+                {
+                    CallFuncInst cf = new CallFuncInst(idCounter++,"@" + name + "()",module.getFunctionType(name));
+                    items.add(cf);
+                }
+
+            }
+            else
+            {
+                //想办法把实参表搞出来
+                StringBuilder sb = new StringBuilder();
+                sb.append("@");
+                sb.append(name);
+                sb.append("(");
+                ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+                items.addAll(analyseFuncRParams(sb,module.getFunction(name)));
+                ASTNow = ASTNow.getParent();
+                sb.append(")");
+                if (module.getFunctionType(name).equals("VOIDTK"))
+                {
+                    CallFuncInst cf = new CallFuncInst(-1,sb.toString(),module.getFunctionType(name));
+                    items.add(cf);
+                }
+                else
+                {
+                    CallFuncInst cf = new CallFuncInst(idCounter++,sb.toString(),module.getFunctionType(name));
+                    items.add(cf);
+                }
+            }
+            //传出来是char要转化
+            if (module.getFunctionType(name).equals("CHARTK"))
+            {
+                TruncInst ti = new TruncInst(idCounter++,false,idCounter - 2);
+                items.add(ti);
+            }
+        }
+        return items;
+    }
+
+
+    private ArrayList<Instruction> analyseFuncRParams(StringBuilder sb, Function ff)
+    {
+        ArrayList<Instruction> items = new ArrayList<>();
+        ArrayList<Argument> args = (ArrayList<Argument>) ff.getArguments();
+        //FuncRParams → Exp { ',' Exp }
+        BranchNode tmp = ASTNow;
+        int i = 0;
+        for (Node n : tmp.getChildren())
+        {
+            if (n.getType().equals("<Exp>"))
+            {
+                ASTNow = (BranchNode) n;
+                items.addAll(analyseExp());
+                ASTNow = ASTNow.getParent();
+                int temp1 = idCounter - 1;
+                if (i != 0)
+                {
+                    sb.append(",");
+                }
+                if (args.get(i).getType().equals("CHARTK"))
+                {
+                    if(args.get(i).isArray())
+                    {
+                        sb.append("i8* %");
+                        sb.append(temp1);
+                    }
+                    else
+                    {
+                        TruncInst ti = new TruncInst(idCounter++,true,idCounter - 2);
+                        items.add(ti);
+                        sb.append("i8 %");
+                        sb.append(idCounter - 1);
+                    }
+                }
+                else
+                {
+                    if(args.get(i).isArray())
+                    {
+                        sb.append("i32* %");
+                        sb.append(temp1);
+                    }
+                    else
+                    {
+
+                        sb.append("i32 %");
+                        sb.append(temp1);
+                    }
+                }
+                i++;
+            }
+        }
+        return items;
+    }
+
+
+    private ArrayList<Instruction> analysePrimaryExp()
+    {
+        ArrayList<Instruction> items = new ArrayList<>();
+        //PrimaryExp → '(' Exp ')' | LVal | Number | Character
+        if (ASTNow.getChildren().get(0).getType().equals("LPARENT"))
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(1);
+            items.addAll(analyseExp());
+            ASTNow = ASTNow.getParent();
+        }
+        else if (ASTNow.getChildren().get(0).getType().equals("<LVal>"))
+        {
+            ASTNow = (BranchNode) ASTNow.getChildren().get(0);
+            items.addAll(analyseLVal());
+            ASTNow = ASTNow.getParent();
+        }
+        else if (ASTNow.getChildren().get(0).getType().equals("<Number>"))
+        {
+            ImmINInst ii = new ImmINInst(idCounter++,Integer.parseInt(((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue()));
+            items.add(ii);
+        }
+        else
+        {
+            //char
+            ImmINInst ii = new ImmINInst(idCounter++,((LeafNode)((BranchNode)ASTNow.getChildren().get(0)).getChildren().get(0)).getToken().getValue().charAt(1));
+            items.add(ii);
+        }
+        return items;
+    }
+
+
+    private ArrayList<Instruction> analyseLVal()
+    {
+        ArrayList<Instruction> items = new ArrayList<>();
+        if (ASTNow.getChildren().size() > 1)
+        {
+            //是数组,计算地址
+            //先找位置
+            // LVal → Ident ['[' Exp ']']
+            ASTNow = (BranchNode) ASTNow.getChildren().get(2);
+            items.addAll(analyseExp());
+            ASTNow = ASTNow.getParent();
+            int position = idCounter - 1;
+            //计算地址
+            String realName = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+            String name = findSymbol(realName,STNow);
+            boolean isInt = isIntSymbol(realName,STNow);
+            GepInst gi = new GepInst(idCounter++,name,position,isInt);
+            int address = idCounter - 1;
+            items.add(gi);
+            if (isInt)
+            {
+                LoadInst li = new LoadInst(idCounter++,address,"INTTK");
+                items.add(li);
+            }
+            else
+            {
+                LoadInst li = new LoadInst(idCounter++,address,"CHARTK");
+                items.add(li);
+                TruncInst ti = new TruncInst(idCounter++,false,idCounter -2);
+                items.add(ti);
+            }
+        }
+        else
+        {
+            String realName = ((LeafNode)ASTNow.getChildren().get(0)).getToken().getValue();
+            boolean isInt = isIntSymbol(realName,STNow);
+            String name = findSymbol(realName,STNow);
+            boolean isFuncParams = isFuncParams(realName,STNow);
+            if (isFuncParams)
+            {
+                ImmINInst ii = new ImmINInst(idCounter++,Integer.parseInt(name.substring(1)),0);
+                items.add(ii);
+            }
+            else if (name.charAt(0) == '@')
+            {
+                if (isInt)
+                {
+                    LoadFromGlobalInst li = new LoadFromGlobalInst(idCounter++,name,"INTTK");
+                    items.add(li);
+                }
+                else
+                {
+                    LoadFromGlobalInst li = new LoadFromGlobalInst(idCounter++,name,"CHARTK");
+                    items.add(li);
+                    TruncInst ti = new TruncInst(idCounter++,false,idCounter -2);
+                    items.add(ti);
+
+                }
+            }
+            else
+            {
+                if (isInt)
+                {
+                    LoadInst li = new LoadInst(idCounter++,Integer.parseInt(name.substring(1)),"INTTK");
+                    items.add(li);
+                }
+                else
+                {
+                    LoadInst li = new LoadInst(idCounter++,Integer.parseInt(name.substring(1)),"CHARTK");
+                    items.add(li);
+                    TruncInst ti = new TruncInst(idCounter++,false,idCounter -2);
+                    items.add(ti);
+                }
+            }
+        }
+        return items;
+    }
+
+    private boolean isFuncParams(String name,SymbolTable low) {
+        for (Symbol symbol: low.symbols)
+        {
+            if (symbol.getName().equals(name))
+            {
+                return symbol.isFuncParam();
+            }
+        }
+        if (low.fatherTable != null)
+        {
+            return isFuncParams(name,low.fatherTable);
+        }
+        else
+        {
+            return false;
+        }
+
+    }
+
+    private void analyseForStmt()
+    {
+
+    }
+
+    private void analyseCond()
+    {
+
+    }
+
+    private void analyseLOrExp()
+    {
+
+    }
+
+    private void analyseLAndExp()
+    {
+
+    }
+
+    private void analyseEqExp()
+    {
+
+    }
+
+    private void analyseRelExp()
+    {
+
+    }
+
+    public ArrayList<String> splitString(String input1) {
+        // 创建一个ArrayList来保存结果
+        String input = input1.substring(1, input1.length() - 1);
+        ArrayList<String> parts = new ArrayList<>();
+
+        // 使用正则表达式来匹配%d和%c，以及其他部分
+        Pattern pattern = Pattern.compile("(%d|%c|[^%]+|%)");
+        Matcher matcher = pattern.matcher(input);
+
+        while (matcher.find()) {
+            String tmp= matcher.group();
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0 ; i < tmp.length();i++)
+            {
+                if (tmp.charAt(i) == '\\' && tmp.charAt(i+1) == 'n')
+                {
+                    sb.append('\n');
+                    i++;
+                }
+                else
+                {
+                    sb.append(tmp.charAt(i));
+                }
+            }
+            parts.add(sb.toString());
+        }
+
+        return parts;
+    }
+
+    public void print(FileProcessor tokenFileProcessor) throws IOException {
+        module.print(tokenFileProcessor);
+    }
+}

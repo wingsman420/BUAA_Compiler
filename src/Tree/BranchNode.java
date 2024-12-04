@@ -24,6 +24,10 @@ public class BranchNode extends Node {
         return children;
     }
 
+    public void setParent(BranchNode parent) {
+        this.parent = parent;
+    }
+
     @Override
     public void print(int depth) {
         StringBuilder indent = new StringBuilder();

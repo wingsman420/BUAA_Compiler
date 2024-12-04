@@ -75,5 +75,15 @@ public class SymbolTable {
         return null;
     }
 
+    public boolean isAArray(String name)
+    {
+        for (Symbol symbol : symbols) {
+            if (symbol.getName().equals(name))
+            {
+                return symbol.ISArray();
+            }
+        }
+        return false;
+    }
 
 }

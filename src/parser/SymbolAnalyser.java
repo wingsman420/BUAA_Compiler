@@ -17,8 +17,7 @@ import java.util.regex.Pattern;
 
 public class SymbolAnalyser {
 
-    private BranchNode rootFromParser;
-    private BranchNode currentParserNode;
+
     private SymbolTable root;
     private SymbolTable now;
     private int nowLevel;
@@ -27,10 +26,8 @@ public class SymbolAnalyser {
 
     public SymbolAnalyser(BranchNode rootFromParser,TreeMap<Integer,String> errors)
     {
-        this.rootFromParser = rootFromParser;
         nowLevel = 1;
         root = new SymbolTable(null,nowLevel);
-        currentParserNode = rootFromParser;
         now = root;
         alreadyIn = false;
         this.errors = new TreeMap<>();
@@ -38,29 +35,11 @@ public class SymbolAnalyser {
         this.errors.putAll(errors);
     }
 
-    public boolean isNewStack(Node node)
+    public SymbolTable getSTRoot()
     {
-        if (node.getType().equals("<FuncDef>") || node.getType().equals("<MainFuncDef>"))
-        {
-            alreadyIn = true;
-            return true;
-        }
-        if (node.getType().equals("<Block>"))
-        {
-            if (alreadyIn)
-            {
-                alreadyIn = false;
-                return false;
-            }
-            return true;
-        }
-        return false;
+        return root;
     }
 
-    private boolean isNewIdents(Node node)
-    {
-        return node.getType().equals("<ConstDecl>") || node.getType().equals("<VarDecl>");
-    }
 
     public void analyse(BranchNode node)
     {

@@ -1,5 +1,6 @@
 package base.symbol.symbol;
 
+import LLVM.RealValue.AInt;
 import base.symbol.Symbol;
 import base.symbol.SymbolKey;
 
@@ -17,5 +18,15 @@ public class IntSymbol extends Symbol {
     }
     public ArrayList<Symbol> getArgs() {
         return null;
+    }
+
+    @Override
+    public int getinitValueByPosition(int length) {
+        return 0;
+    }
+
+    @Override
+    public int getInitValue() {
+        return ((AInt)rv).getInitValue();
     }
 }

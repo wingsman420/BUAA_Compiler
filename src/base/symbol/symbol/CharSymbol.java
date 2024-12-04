@@ -1,5 +1,6 @@
 package base.symbol.symbol;
 
+import LLVM.RealValue.AChar;
 import base.symbol.Symbol;
 import base.symbol.SymbolKey;
 
@@ -18,5 +19,15 @@ public class CharSymbol extends Symbol {
 
     public ArrayList<Symbol> getArgs() {
         return null;
+    }
+
+    @Override
+    public int getinitValueByPosition(int length) {
+        return 0;
+    }
+
+    @Override
+    public int getInitValue() {
+        return ((AChar)rv).getInitValue();
     }
 }
