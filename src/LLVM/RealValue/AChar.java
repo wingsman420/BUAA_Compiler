@@ -21,4 +21,9 @@ public class AChar extends RealValue{
     public String toString(){
         return "";
     }
+
+    @Override
+    public int getLength() {
+        return 0;
+    }
 }

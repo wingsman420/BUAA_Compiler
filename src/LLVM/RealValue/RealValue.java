@@ -7,4 +7,6 @@ public abstract class RealValue {
 
     }
     public abstract String toString();
+
+    public abstract int getLength();
 }

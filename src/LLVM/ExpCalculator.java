@@ -91,7 +91,32 @@ public class ExpCalculator {
             return Integer.parseInt(((LeafNode)((BranchNode)PrimaryExp.getChildren().get(0)).getChildren().get(0)).getToken().getValue());
         }
         else if (PrimaryExp.getChildren().get(0).getType().equals("<Character>")) {
-            return (int) ((LeafNode)((BranchNode)PrimaryExp.getChildren().get(0)).getChildren().get(0)).getToken().getValue().charAt(1);
+            String temp = ((LeafNode)((BranchNode)PrimaryExp.getChildren().get(0)).getChildren().get(0)).getToken().getValue();
+            char t  = temp.charAt(1);
+            if (temp.length() == 4)
+            {
+                switch (temp.charAt(2)) {
+                    case '0':
+                        t = '\0'; break;
+                    case 'n':
+                        t = '\n'; break;
+                    case 't':
+                        t = '\t'; break;
+                    case 'b':
+                        t = '\b'; break;
+                    case 'r':
+                        t = '\r'; break;
+                    case 'f':
+                        t = '\f'; break;
+                    case '\\':
+                        t = '\\'; break;
+                    case '\'':
+                        t = '\''; break;
+                    case '\"':
+                        t = '\"'; break;
+                }
+            }
+            return t;
         }
         else
         {

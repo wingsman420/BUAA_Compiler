@@ -1,4 +1,5 @@
 import LLVM.LLVMGenerator;
+import LLVM.TempCounter;
 import Lexer.Lexer;
 import frontend.*;
 import parser.GrammaticalAnalyser;
@@ -9,6 +10,8 @@ import java.io.IOException;
 public class Compiler {
     public static void main(String[] args) {
         try {
+
+            TempCounter tempCounter = new TempCounter();
             // 创建 FileProcessor 读取 "testfile.txt"，输出到 "lexer_output.txt"
 
             FileProcessor tokenFileProcessor = new FileProcessor("testfile.txt", "llvm_ir.txt");

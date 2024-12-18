@@ -1,11 +1,13 @@
 package LLVM.classes.module;
 
 import LLVM.classes.BlockItems.BasicBlock;
+import LLVM.classes.BlockItems.items.RetInst;
 import LLVM.classes.Value;
 import frontend.FileProcessor;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class Function extends GlobalValue{
@@ -73,9 +75,20 @@ public class Function extends GlobalValue{
         {
             fileProcessor.writeByLine("define dso_local i8 @" + name +"("+ sb +")" + "{");
         }
+        int ii = 0;
         for (BasicBlock basicBlock : basicBlocks)
         {
+            if (ii == basicBlocks.size() - 1 && (basicBlock.getInstructions().isEmpty()||
+                    !(basicBlock.getInstructions().get(basicBlock.getInstructions().size() - 1) instanceof RetInst)))
+            {
+                basicBlock.addInstruction(new RetInst(0));
+            }
+            if (ii != 0)
+            {
+                fileProcessor.writeByLine("block" + basicBlock.getId() + ":");
+            }
             basicBlock.print(fileProcessor);
+            ii++;
         }
         fileProcessor.writeByLine("}");
         fileProcessor.writeByLine("\n");

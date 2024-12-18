@@ -1,5 +1,8 @@
 package LLVM.classes.BlockItems;
 
+import LLVM.TempCounter;
+import LLVM.classes.BlockItems.items.BrInst;
+import LLVM.classes.BlockItems.items.RetInst;
 import LLVM.classes.Value;
 import frontend.FileProcessor;
 
@@ -21,6 +24,11 @@ public class BasicBlock extends Value {
         super(id);
         this.name = "name";
         this.instructions = new ArrayList<>();
+    }
+
+    public int getOrder()
+    {
+        return instructions.get(0).getId();
     }
 
     public void addInstruction(Instruction instruction) {
@@ -45,8 +53,20 @@ public class BasicBlock extends Value {
     }
 
     public void print(FileProcessor fileProcessor) throws IOException {
+        boolean first = false;
         for (Instruction instruction : instructions) {
-            fileProcessor.writeByLine(instruction.toString());
+
+
+            fileProcessor.writeByLine("\t" +  instruction.toString());
+
+            if (instruction instanceof BrInst)
+            {
+                first = true;
+            }
+            if ((instruction instanceof BrInst || instruction instanceof RetInst) && !instruction.equals(instructions.get(instructions.size()-1)))
+            {
+                fileProcessor.writeByLine("blockLcy" + TempCounter.counter++ + ":");
+            }
         }
     }
 }

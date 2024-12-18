@@ -82,4 +82,13 @@ public class Module {
             function.print(fileProcessor);
         }
     }
+
+    public int getGlobalVariablesLength(String realName) {
+        for (GlobalVariable globalVariable : globalVariables) {
+            if (globalVariable.getName().equals(realName)) {
+                return globalVariable.getLength();
+            }
+        }
+        return -1;
+    }
 }

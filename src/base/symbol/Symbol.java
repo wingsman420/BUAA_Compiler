@@ -11,7 +11,7 @@ public abstract class Symbol {
     private String name;
     protected SymbolKey type;
     protected boolean isFunc;
-    protected boolean isArray;
+    public boolean isArray;
     protected boolean isConst;
     protected boolean isInt;
     protected boolean isVoid;
@@ -36,6 +36,8 @@ public abstract class Symbol {
         return false;
         //逻辑修改暂时不用相关函数
     }
+
+    public abstract int getLength();
 
     public boolean ISFunc()
     {

@@ -34,9 +34,21 @@ public class CharArray extends RealValue{
             StringBuilder sb = new StringBuilder();
             sb.append('c');
             sb.append('\"');
-            for(int i = 1; i < this.length + 1; i++){
-                if (i < this.value.length() - 1){
-                    sb.append(this.value.charAt(i));
+            for(int i = 0; i < this.length; i++){
+                if (i < this.value.length()){
+                    switch (this.value.charAt(i)){
+                        case 0: sb.append("\\00"); break;
+                        case 7: sb.append("\\07"); break;
+                        case 8: sb.append("\\08"); break;
+                        case 9: sb.append("\\09"); break;
+                        case 10: sb.append("\\0A"); break;
+                        case 11: sb.append("\\0B"); break;
+                        case 12: sb.append("\\0C"); break;
+                        case 34: sb.append("\\22"); break;
+                        case 39: sb.append("\\27"); break;
+                        case 92: sb.append("\\5C"); break;
+                        default: sb.append(this.value.charAt(i));;
+                    }
                 }
                 else
                 {

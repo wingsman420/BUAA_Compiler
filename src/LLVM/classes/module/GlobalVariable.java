@@ -31,6 +31,11 @@ public class GlobalVariable extends GlobalValue{
         return isConst;
     }
 
+    public int getLength()
+    {
+        return value.getLength();
+    }
+
     @Override
     public String toString() {
         if (!isConst)

@@ -20,6 +20,7 @@ public class StoreInst extends Instruction {
         this.value = value;
         this.isInt = isInt;
         this.ptr = false;
+        this.imm = imm;
     }
 
     public StoreInst(int id, int value, int address, boolean isInt, boolean imm,boolean ptr)
@@ -29,6 +30,7 @@ public class StoreInst extends Instruction {
         this.value = value;
         this.isInt = isInt;
         this.ptr = ptr;
+        this.imm = false;
     }
 
     public StoreInst(int id, int value, String address, boolean isInt, boolean imm)
@@ -39,6 +41,7 @@ public class StoreInst extends Instruction {
         this.isInt = isInt;
         this.global = true;
         this.ptr = false;
+        this.imm = false;
     }
 
     public StoreInst(int id, int value, String address, boolean isInt, boolean imm,boolean ptr)
@@ -49,6 +52,7 @@ public class StoreInst extends Instruction {
         this.isInt = isInt;
         this.global = true;
         this.ptr = ptr;
+        this.imm = false;
     }
 
 

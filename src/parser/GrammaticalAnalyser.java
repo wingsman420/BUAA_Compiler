@@ -1325,79 +1325,271 @@ public class GrammaticalAnalyser {
     }
 
     private void analyseLOrExp() {
+        BranchNode now = currentNode;
+        //记录父节点
+        //进入为第一位
+        ArrayList<BranchNode> LAndList = new ArrayList<>();
+        ArrayList<LeafNode> signList = new ArrayList<>();
         int i = 0;
         do {
             if (i++ != 0 && peekToken(0).getType().equals("OR"))
             {
-                grammar.add("<LOrExp>");
-                grammarTokens.add(new Token("GRAMMAR","<LOrExp>",thisNum));
-                nextToken();//||
-                creatLeafNode();
-                nextToken();//进
+                grammar.add("<LOrExo>");
+                nextToken();//+-
+                signList.add(new LeafNode(thisToken));
+                nextToken();//第一位
             }
-            creatAndGoToNode("<LAndExp>");
+            BranchNode temp = new BranchNode("<LAndExp>",null);
+            currentNode = temp;
             analyseLAndExp();
-            goBack();
-        }while (peekToken(0).getType().equals("OR"));
+            currentNode = now;
+            LAndList.add(temp);
+            //建树成功，还没有加入
+        }while(peekToken(0).getType().equals("OR"));
+        //退出为最后一位
+        if (signList.isEmpty())
+        {
+            currentNode = now;
+            currentNode.addChild(LAndList.get(0));
+            LAndList.get(0).setParent(currentNode);
+        }
+        else
+        {
+            BranchNode LOrExp = new BranchNode("<LOrExp>",null);
+            LOrExp.getChildren().add(LAndList.get(0));
+            LAndList.get(0).setParent(LOrExp);
+            BranchNode last = LOrExp;
+            BranchNode left;
+            BranchNode right;
+            for (i = 0; i < signList.size();i++)
+            {
+                LOrExp = new BranchNode("<LOrExp>",null);
+                left = last;
+                right = LAndList.get(i + 1);
+                LOrExp.getChildren().add(left);
+                left.setParent(LOrExp);
+
+                LOrExp.getChildren().add(signList.get(i));
+
+                LOrExp.getChildren().add(right);
+                right.setParent(LOrExp);
+
+                last = LOrExp;
+            }
+            currentNode = now;
+            for (Node node : last.getChildren())
+            {
+                currentNode.getChildren().add(node);
+                if (node instanceof BranchNode)
+                {
+                    ((BranchNode) node).setParent(currentNode);
+                }
+            }
+        }
         grammar.add("<LOrExp>");
         grammarTokens.add(new Token("GRAMMAR","<LOrExp>",thisNum));
     }
 
     private void analyseLAndExp() {
+        BranchNode now = currentNode;
         int i = 0;
+        ArrayList<BranchNode> EqList = new ArrayList<>();
+        ArrayList<LeafNode> signList = new ArrayList<>();
+        //进入为第一位
         do {
             if (i++ != 0 && peekToken(0).getType().equals("AND"))
             {
                 grammar.add("<LAndExp>");
                 grammarTokens.add(new Token("GRAMMAR","<LAndExp>",thisNum));
-                nextToken();//&&
-                creatLeafNode();
-                nextToken();//进
+                nextToken();//*/%
+                signList.add(new LeafNode(thisToken));
+                nextToken();//进入第一位
             }
-            creatAndGoToNode("<EqExp>");
+            BranchNode temp = new BranchNode("<EqExp>",null);
+            currentNode = temp;
             analyseEqExp();
-            goBack();
-        }while (peekToken(0).getType().equals("AND"));
+            currentNode = now;
+            EqList.add(temp);
+        }
+        while (peekToken(0).getType().equals("AND"));
+        if (signList.isEmpty())
+        {
+            currentNode = now;
+            currentNode.addChild(EqList.get(0));
+            EqList.get(0).setParent(currentNode);
+        }
+        else
+        {
+            BranchNode LAndExp = new BranchNode("<LAndExp>",null);
+            LAndExp.getChildren().add(EqList.get(0));
+            EqList.get(0).setParent(LAndExp);
+            BranchNode last = LAndExp;
+            BranchNode left;
+            BranchNode right;
+            for (i = 0; i < signList.size();i++)
+            {
+                LAndExp = new BranchNode("<LAndExp>",null);
+                left = last;
+                right = EqList.get(i + 1);
+                LAndExp.getChildren().add(left);
+                left.setParent(LAndExp);
+
+                LAndExp.getChildren().add(signList.get(i));
+
+                LAndExp.getChildren().add(right);
+                right.setParent(LAndExp);
+
+                last = LAndExp;
+            }
+            currentNode = now;
+            for (Node node : last.getChildren())
+            {
+                currentNode.getChildren().add(node);
+                if (node instanceof BranchNode)
+                {
+                    ((BranchNode) node).setParent(currentNode);
+                }
+            }
+        }
+
         grammar.add("<LAndExp>");
         grammarTokens.add(new Token("GRAMMAR","<LAndExp>",thisNum));
     }
 
     private void analyseEqExp() {
+        BranchNode now = currentNode;
         int i = 0;
+        ArrayList<BranchNode> RelList = new ArrayList<>();
+        ArrayList<LeafNode> signList = new ArrayList<>();
+        //进入为第一位
         do {
             if (i++ != 0 && (peekToken(0).getType().equals("EQL") || peekToken(0).getType().equals("NEQ")))
             {
                 grammar.add("<EqExp>");
                 grammarTokens.add(new Token("GRAMMAR","<EqExp>",thisNum));
-                nextToken();//== !=
-                creatLeafNode();
-                nextToken();//进
+                nextToken();//*/%
+                signList.add(new LeafNode(thisToken));
+                nextToken();//进入第一位
             }
-            creatAndGoToNode("<RelExp>");
+            BranchNode temp = new BranchNode("<RelExp>",null);
+            currentNode = temp;
             analyseRelExp();
-            goBack();
-        }while (peekToken(0).getType().equals("EQL") || peekToken(0).getType().equals("NEQ"));
+            currentNode = now;
+            RelList.add(temp);
+        }
+        while (peekToken(0).getType().equals("EQL") || peekToken(0).getType().equals("NEQ"));
+
+
+        if (signList.isEmpty())
+        {
+            currentNode = now;
+            currentNode.addChild(RelList.get(0));
+            RelList.get(0).setParent(currentNode);
+        }
+        else
+        {
+            BranchNode addExp = new BranchNode("<EqExp>",null);
+            addExp.getChildren().add(RelList.get(0));
+            RelList.get(0).setParent(addExp);
+            BranchNode last = addExp;
+            BranchNode left;
+            BranchNode right;
+            for (i = 0; i < signList.size();i++)
+            {
+                addExp = new BranchNode("<EqExp>",null);
+                left = last;
+                right = RelList.get(i + 1);
+                addExp.getChildren().add(left);
+                left.setParent(addExp);
+
+                addExp.getChildren().add(signList.get(i));
+
+                addExp.getChildren().add(right);
+                right.setParent(addExp);
+
+                last = addExp;
+            }
+            currentNode = now;
+            for (Node node : last.getChildren())
+            {
+                currentNode.getChildren().add(node);
+                if (node instanceof BranchNode)
+                {
+                    ((BranchNode) node).setParent(currentNode);
+                }
+            }
+        }
+
         grammar.add("<EqExp>");
         grammarTokens.add(new Token("GRAMMAR","<EqExp>",thisNum));
     }
 
     private void analyseRelExp() {
+        BranchNode now = currentNode;
         int i = 0;
+        ArrayList<BranchNode> addList = new ArrayList<>();
+        ArrayList<LeafNode> signList = new ArrayList<>();
+        //进入为第一位
         do {
             if (i++ != 0 && (peekToken(0).getType().equals("LSS") || peekToken(0).getType().equals("LEQ")||
-            peekToken(0).getType().equals("GRE") || peekToken(0).getType().equals("GEQ")))
+                    peekToken(0).getType().equals("GRE") || peekToken(0).getType().equals("GEQ")))
             {
                 grammar.add("<RelExp>");
                 grammarTokens.add(new Token("GRAMMAR","<RelExp>",thisNum));
-                nextToken();//== !=
-                creatLeafNode();
-                nextToken();//进
+                nextToken();//*/%
+                signList.add(new LeafNode(thisToken));
+                nextToken();//进入第一位
             }
-            creatAndGoToNode("<AddExp>");
+            BranchNode temp = new BranchNode("<AddExp>",null);
+            currentNode = temp;
             analyseAddExp();
-            goBack();
-        }while (peekToken(0).getType().equals("LSS") || peekToken(0).getType().equals("LEQ")||
+            currentNode = now;
+            addList.add(temp);
+        }
+        while (peekToken(0).getType().equals("LSS") || peekToken(0).getType().equals("LEQ")||
                 peekToken(0).getType().equals("GRE") || peekToken(0).getType().equals("GEQ"));
+
+
+        if (signList.isEmpty())
+        {
+            currentNode = now;
+            currentNode.addChild(addList.get(0));
+            addList.get(0).setParent(currentNode);
+        }
+        else
+        {
+            BranchNode relExp = new BranchNode("<RelExp>",null);
+            relExp.getChildren().add(addList.get(0));
+            addList.get(0).setParent(relExp);
+            BranchNode last = relExp;
+            BranchNode left;
+            BranchNode right;
+            for (i = 0; i < signList.size();i++)
+            {
+                relExp = new BranchNode("<RelExp>",null);
+                left = last;
+                right = addList.get(i + 1);
+                relExp.getChildren().add(left);
+                left.setParent(relExp);
+
+                relExp.getChildren().add(signList.get(i));
+
+                relExp.getChildren().add(right);
+                right.setParent(relExp);
+
+                last = relExp;
+            }
+            currentNode = now;
+            for (Node node : last.getChildren())
+            {
+                currentNode.getChildren().add(node);
+                if (node instanceof BranchNode)
+                {
+                    ((BranchNode) node).setParent(currentNode);
+                }
+            }
+        }
+
         grammar.add("<RelExp>");
         grammarTokens.add(new Token("GRAMMAR","<RelExp>",thisNum));
     }

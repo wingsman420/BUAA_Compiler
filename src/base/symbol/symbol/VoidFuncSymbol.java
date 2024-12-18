@@ -31,4 +31,9 @@ public class VoidFuncSymbol extends Symbol {
     public int getInitValue() {
         return 0;
     }
+
+    @Override
+    public int getLength() {
+        return -1;
+    }
 }

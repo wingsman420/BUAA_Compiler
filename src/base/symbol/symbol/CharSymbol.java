@@ -30,4 +30,9 @@ public class CharSymbol extends Symbol {
     public int getInitValue() {
         return ((AChar)rv).getInitValue();
     }
+
+    @Override
+    public int getLength() {
+        return 0;
+    }
 }

@@ -31,4 +31,9 @@ public class ConstIntSymbol extends Symbol {
     public int getInitValue() {
         return ((AInt)rv).getInitValue();
     }
+
+    @Override
+    public int getLength() {
+        return 0;
+    }
 }
