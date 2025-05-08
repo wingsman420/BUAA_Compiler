@@ -32,9 +32,16 @@ public class Compiler {
 
             //symbolAnalyser.writeTokens(tokenFileProcessor);
             //symbolAnalyser.writeErrors(errorFileProcessor);
+            if (!symbolAnalyser.errors.isEmpty())
+            {
+                symbolAnalyser.writeErrors(errorFileProcessor);
+                errorFileProcessor.close();
+                return;
+            }
             LLVMGenerator lg = new LLVMGenerator(grammaticalAnalyser.getRoot());
             lg.analyseCompUnit();
             lg.print(tokenFileProcessor);
+            tokenFileProcessor.close();
 
             // 输出词法分析结果到 lexer.txt
             //grammaticalAnalyser.writeTokens(tokenFileProcessor);
@@ -43,8 +50,8 @@ public class Compiler {
             //grammaticalAnalyser.writeErrors(errorFileProcessor);
 
             // 关闭文件写入器
-            tokenFileProcessor.close();
-            errorFileProcessor.close();
+
+
         } catch (IOException e) {
             e.printStackTrace();
         }

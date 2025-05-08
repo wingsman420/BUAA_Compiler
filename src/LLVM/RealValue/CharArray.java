@@ -24,6 +24,33 @@ public class CharArray extends RealValue{
     }
 
     @Override
+    public String toMips() {
+        if (value == null)
+        {
+            return "0:" + length;
+        }
+        else
+        {
+            StringBuilder sb = new StringBuilder();
+            for(int i = 0; i < this.length; i++){
+                if (i != 0)
+                {
+                    sb.append(",");
+                }
+                if (i < this.value.length()){
+                    int temp = this.value.charAt(i);
+                    sb.append(Integer.toString(temp));
+                }
+                else
+                {
+                    sb.append('0');
+                }
+            }
+            return sb.toString();
+        }
+    }
+
+    @Override
     public String toString(){
         if (value == null)
         {

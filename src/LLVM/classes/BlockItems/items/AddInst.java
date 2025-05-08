@@ -3,8 +3,8 @@ package LLVM.classes.BlockItems.items;
 import LLVM.classes.BlockItems.Instruction;
 
 public class AddInst extends Instruction {
-    private int value1;
-    private int value2;
+    public int value1;
+    public int value2;
 
     public AddInst(int id,int value1,int value2) {
         super(id);

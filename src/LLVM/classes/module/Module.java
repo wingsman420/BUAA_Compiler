@@ -8,7 +8,7 @@ import java.util.List;
 
 public class Module {
     private List<GlobalVariable> globalVariables;
-    private List<ConstString> constStrings;
+    public List<ConstString> constStrings;
     private List<Function> functions;
 
     public Module() {

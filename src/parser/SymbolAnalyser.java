@@ -22,7 +22,7 @@ public class SymbolAnalyser {
     private SymbolTable now;
     private int nowLevel;
     private boolean alreadyIn;
-    private TreeMap<Integer,String> errors;
+    public TreeMap<Integer,String> errors;
 
     public SymbolAnalyser(BranchNode rootFromParser,TreeMap<Integer,String> errors)
     {
@@ -320,7 +320,7 @@ public class SymbolAnalyser {
                             Symbol Func = now.legalVar(((LeafNode)node.getChildren().get(0)).getToken().getValue());
                             if (Func == null)
                             {
-                                errors.put(getFirstLineNumber(node),"h");
+
                             }
                             else
                             {
@@ -366,9 +366,12 @@ public class SymbolAnalyser {
                                                             }
                                                         }
                                                     }
-                                                    if (inToken.getType().equals("INTCON") || inToken.getType().equals("CHRCON"))
+                                                    if (inToken.getType().equals("INTCON"))
                                                     {
                                                         low = new ConstIntSymbol(1,inToken.getLineNumber(),"name");
+                                                    }
+                                                    else if (inToken.getType().equals("CHRCON")){
+                                                        low = new ConstCharSymbol(1,inToken.getLineNumber(),"name");
                                                     }
                                                     else
                                                     {
@@ -376,7 +379,7 @@ public class SymbolAnalyser {
                                                     }
                                                     if (low == null)
                                                     {
-                                                        errors.put(getFirstLineNumber(bn),"h");
+
                                                     }
                                                     else
                                                     {

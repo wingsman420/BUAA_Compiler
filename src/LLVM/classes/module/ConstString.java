@@ -17,6 +17,11 @@ public class ConstString extends GlobalValue{
         return "@" + name;
     }
 
+    public String getValue()
+    {
+        return value;
+    }
+
     public String escapeToLLVMString() {
         StringBuilder sb = new StringBuilder();
         sb.append("c\"");

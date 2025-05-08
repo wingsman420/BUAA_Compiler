@@ -26,4 +26,9 @@ public class AChar extends RealValue{
     public int getLength() {
         return 0;
     }
+
+    @Override
+    public String toMips() {
+        return Integer.toString(initValue);
+    }
 }

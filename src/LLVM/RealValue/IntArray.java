@@ -33,6 +33,34 @@ public class IntArray extends RealValue{
     }
 
     @Override
+    public String toMips() {
+        if (list.isEmpty())
+        {
+            return "0:" + length;
+        }
+        else
+        {
+            StringBuilder str = new StringBuilder();
+            for (int i = 0; i < length; i++)
+            {
+                if (i != 0)
+                {
+                    str.append(", ");
+                }
+                if (i < list.size())
+                {
+                    str.append(list.get(i));
+                }
+                else
+                {
+                    str.append("0");
+                }
+            }
+            return str.toString();
+        }
+    }
+
+    @Override
     public String toString(){
         if (list.isEmpty())
         {
